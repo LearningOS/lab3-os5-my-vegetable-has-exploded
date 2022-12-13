@@ -167,6 +167,17 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
     v
 }
 
+// LAB2
+/// translate a pointer to a mutable T through page table
+pub fn translated_ptr<T>(token: usize, ptr: *mut T) -> *mut T {
+    let page_table = PageTable::from_token(token);
+    let vptr = VirtAddr::from(ptr as usize);
+    let vpn = vptr.floor();
+    let ppn = page_table.translate(vpn).unwrap().ppn();
+    let pptr = PhysAddr::from(ppn);
+    (usize::from(pptr) + vptr.page_offset()) as *mut T
+}
+
 pub fn translated_str(token: usize, ptr: *const u8) -> String {
     let page_table = PageTable::from_token(token);
     let mut string = String::new();

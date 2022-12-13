@@ -2,11 +2,13 @@
 
 use super::TaskContext;
 use super::{pid_alloc, KernelStack, PidHandle};
-use crate::config::TRAP_CONTEXT;
+use crate::config::{MAX_SYSCALL_NUM, TRAP_CONTEXT};
 use crate::mm::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
 use crate::sync::UPSafeCell;
+use crate::timer::get_time_us;
 use crate::trap::{trap_handler, TrapContext};
 use alloc::sync::{Arc, Weak};
+use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefMut;
 
@@ -19,6 +21,8 @@ pub struct TaskControlBlock {
     pub pid: PidHandle,
     /// Kernel stack corresponding to PID
     pub kernel_stack: KernelStack,
+    // LAB1
+    pub init_time: usize,
     // mutable
     inner: UPSafeCell<TaskControlBlockInner>,
 }
@@ -46,6 +50,9 @@ pub struct TaskControlBlockInner {
     pub children: Vec<Arc<TaskControlBlock>>,
     /// It is set when active exit or execution error occurs
     pub exit_code: i32,
+
+    //LAB1 syscall record
+    pub syscall_counter: Vec<u32>,
 }
 
 /// Simple access to its internal fields
@@ -66,6 +73,24 @@ impl TaskControlBlockInner {
     }
     pub fn is_zombie(&self) -> bool {
         self.get_status() == TaskStatus::Zombie
+    }
+
+    //LAB1
+    pub fn record_syscall(&mut self, syscall_id: usize) {
+        self.syscall_counter[syscall_id] += 1;
+    }
+
+    pub fn get_record_syscall(&mut self) -> Vec<u32> {
+        self.syscall_counter.clone()
+    }
+
+    //LAB2
+    pub fn mmap(&mut self, virt_start: VirtAddr, virt_end: VirtAddr, port: usize) -> isize {
+        self.memory_set.mmap(virt_start, virt_end, port)
+    }
+
+    pub fn unmap(&mut self, virt_start: VirtAddr, virt_end: VirtAddr) -> isize {
+        self.memory_set.unmap(virt_start, virt_end)
     }
 }
 
@@ -93,6 +118,7 @@ impl TaskControlBlock {
         let task_control_block = Self {
             pid: pid_handle,
             kernel_stack,
+            init_time: get_time_us() / 1_000,
             inner: unsafe {
                 UPSafeCell::new(TaskControlBlockInner {
                     trap_cx_ppn,
@@ -103,6 +129,7 @@ impl TaskControlBlock {
                     parent: None,
                     children: Vec::new(),
                     exit_code: 0,
+                    syscall_counter: vec![0; MAX_SYSCALL_NUM],
                 })
             },
         };
@@ -160,6 +187,7 @@ impl TaskControlBlock {
         let task_control_block = Arc::new(TaskControlBlock {
             pid: pid_handle,
             kernel_stack,
+            init_time: get_time_us() / 1_000,
             inner: unsafe {
                 UPSafeCell::new(TaskControlBlockInner {
                     trap_cx_ppn,
@@ -170,6 +198,7 @@ impl TaskControlBlock {
                     parent: Some(Arc::downgrade(self)),
                     children: Vec::new(),
                     exit_code: 0,
+                    syscall_counter: vec![0; MAX_SYSCALL_NUM],
                 })
             },
         });
@@ -186,6 +215,10 @@ impl TaskControlBlock {
     }
     pub fn getpid(&self) -> usize {
         self.pid.0
+    }
+
+    pub fn get_start_time(&self) -> usize {
+        return self.init_time;
     }
 }
 

@@ -18,7 +18,10 @@ mod switch;
 mod task;
 
 use crate::loader::get_app_data_by_name;
+use crate::mm::VirtAddr;
+use crate::timer::get_time_us;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use lazy_static::*;
 use manager::fetch_task;
 use switch::__switch;
@@ -96,4 +99,36 @@ lazy_static! {
 
 pub fn add_initproc() {
     add_task(INITPROC.clone());
+}
+
+// LAB1: Try to implement your function to update or get task info!
+pub fn record_syscall(syscall_id: usize) {
+    let task = current_task().unwrap();
+    task.inner_exclusive_access().record_syscall(syscall_id);
+}
+
+pub fn get_syscall_record() -> Vec<u32> {
+    let task = current_task().unwrap();
+    let result = task.inner_exclusive_access().get_record_syscall();
+    result
+}
+
+pub fn get_time_interval() -> usize {
+    let task = current_task().unwrap();
+    let now = get_time_us() / 1_000;
+    let interval = now - task.get_start_time();
+    interval
+}
+
+//LAB2
+pub fn mmap(virt_start: VirtAddr, virt_end: VirtAddr, port: usize) -> isize {
+    let task = current_task().unwrap();
+    let mut inner = task.inner_exclusive_access();
+    inner.mmap(virt_start, virt_end, port)
+}
+
+pub fn unmap(virt_start: VirtAddr, virt_end: VirtAddr) -> isize {
+    let task = current_task().unwrap();
+    let mut inner = task.inner_exclusive_access();
+    inner.unmap(virt_start, virt_end)
 }
