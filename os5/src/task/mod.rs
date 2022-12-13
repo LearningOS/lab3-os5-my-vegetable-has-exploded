@@ -104,12 +104,14 @@ pub fn add_initproc() {
 // LAB1: Try to implement your function to update or get task info!
 pub fn record_syscall(syscall_id: usize) {
     let task = current_task().unwrap();
-    task.inner_exclusive_access().record_syscall(syscall_id);
+    let mut inner = task.inner_exclusive_access();
+    inner.record_syscall(syscall_id);
 }
 
 pub fn get_syscall_record() -> Vec<u32> {
     let task = current_task().unwrap();
-    let result = task.inner_exclusive_access().get_record_syscall();
+    let mut inner = task.inner_exclusive_access();
+    let result = inner.get_record_syscall();
     result
 }
 
