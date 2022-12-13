@@ -5,7 +5,7 @@ use crate::loader::get_app_data_by_name;
 use crate::mm::{translated_ptr, translated_refmut, translated_str, VirtAddr};
 use crate::task::{
     add_task, current_task, current_user_token, exit_current_and_run_next, get_syscall_record,
-    get_time_interval, mmap, suspend_current_and_run_next, unmap, TaskStatus,
+    get_time_interval, mmap, set_priority, suspend_current_and_run_next, unmap, TaskStatus,
 };
 use crate::timer::get_time_us;
 use alloc::sync::Arc;
@@ -132,9 +132,14 @@ pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
     0
 }
 
+//LAB3
 // YOUR JOB: 实现sys_set_priority，为任务添加优先级
 pub fn sys_set_priority(_prio: isize) -> isize {
-    -1
+    if _prio < 2 {
+        return -1;
+    }
+    set_priority(_prio);
+    return _prio;
 }
 
 fn check_mmap_port(port: usize) -> bool {
@@ -172,9 +177,25 @@ pub fn sys_munmap(_start: usize, _len: usize) -> isize {
     unmap(virt_start, virt_end)
 }
 
-//
+// LAB3
 // YOUR JOB: 实现 sys_spawn 系统调用
 // ALERT: 注意在实现 SPAWN 时不需要复制父进程地址空间，SPAWN != FORK + EXEC
 pub fn sys_spawn(_path: *const u8) -> isize {
-    -1
+    let token = current_user_token();
+    let path = translated_str(token, _path);
+    if let Some(data) = get_app_data_by_name(path.as_str()) {
+        let task = current_task().unwrap();
+        let new_task = task.spawn(data);
+        let new_pid = new_task.pid.0;
+        // modify trap context of new_task, because it returns immediately after switching
+        let trap_cx = new_task.inner_exclusive_access().get_trap_cx();
+        // we do not have to move to next instruction since we have done it before
+        // for child process, fork returns 0
+        trap_cx.x[10] = 0;
+        // add new task to scheduler
+        add_task(new_task);
+        new_pid as isize
+    } else {
+        -1
+    }
 }

@@ -134,3 +134,10 @@ pub fn unmap(virt_start: VirtAddr, virt_end: VirtAddr) -> isize {
     let mut inner = task.inner_exclusive_access();
     inner.unmap(virt_start, virt_end)
 }
+
+//LAB3
+pub fn set_priority(priority: isize) {
+    let task = current_task().unwrap();
+    let mut inner = task.inner_exclusive_access();
+    inner.set_priority(priority);
+}

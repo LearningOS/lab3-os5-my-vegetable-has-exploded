@@ -56,6 +56,8 @@ pub fn run_tasks() {
             let mut task_inner = task.inner_exclusive_access();
             let next_task_cx_ptr = &task_inner.task_cx as *const TaskContext;
             task_inner.task_status = TaskStatus::Running;
+            let prio = task_inner.prio;
+            task_inner.pass.stride(prio);
             drop(task_inner);
             // release coming task TCB manually
             processor.current = Some(task);
